@@ -24,13 +24,6 @@ if [ -z "$1" ];then
     exit 1
 fi
 
-touch_in_sh() {
-    local file
-    for file in "$@" ; do
-        : >> "${file}"
-    done
-}
-
 default_vars
-touch_in_sh "${SVDIR}/${1}/down"
+touch "${SVDIR}/${1}/down"
 sv down "$1"
