@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# shellcheck shell=dash
 
 default_vars() {
     local prefix="${TERMUX__PREFIX:-"${PREFIX}"}"
@@ -24,5 +25,5 @@ if [ -z "$1" ];then
 fi
 
 default_vars
-: >> "${SVDIR}/${1}/down"
+touch "${SVDIR}/${1}/down"
 sv down "$1"
