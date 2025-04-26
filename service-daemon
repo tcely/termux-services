@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# shellcheck shell=dash
 
 set -eu
 
@@ -21,14 +22,13 @@ readonly SVDIR
 unset -v _prefix
 
 
-wait_for_pid() (
+wait_for_pid() {
     local pid="$1"
-    local s
+    local seconds
 
-    for s in 1 2 3 4 5
-    do
+    for seconds in 1 2 3 4 5 ; do
         kill -0 "${pid}" 2>/dev/null || break
-        sleep "$s"
+        sleep "${seconds}"
     done
     kill -0 "${pid}" 2>/dev/null && return 1 || return 0
 }
@@ -36,27 +36,26 @@ wait_for_pid() (
 kill_from_pid_file() {
     local pid
 
-    for pid in $(head -n 1 "$1")
-    do
+    for pid in $(head -n 1 "$1") ; do
         kill "${pid}"
         wait_for_pid "${pid}" || kill -9 "${pid}"
     done
 }
 
 start() {
-    mkdir -m 00700 -p "${XDG_RUNTIME_DIR}"
+    # shellcheck disable=SC2174
+    mkdir -m 0700 -p "${XDG_RUNTIME_DIR}"
     start-stop-daemon -S -b -m -p "${PIDFILE}" -x "${DAEMON}" -d "${XDG_RUNTIME_DIR}" -- "${DAEMON_OPTS}"
 }
 
 stop() {
-    local d pid="$(cat "${PIDFILE}")"
+    local dir pid="$(cat "${PIDFILE}")"
 
     start-stop-daemon -K -s "${DAEMON_STOP_SIGNAL}" -o -p "${PIDFILE}"
     wait_for_pid "${pid}" || tail -f --pid="${pid}" /dev/null
-    for d in "${SVDIR}"/*/supervise "${SVDIR}"/*/log/supervise
-    do
-        kill_from_pid_file "${d}/pid"
-        rm -rf "${d}"
+    for dir in "${SVDIR}"/*/{,log/}supervise ; do
+        kill_from_pid_file "${dir}/pid"
+        rm -rf "${dir}"
     done
 }
 
