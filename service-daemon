@@ -1,47 +1,91 @@
-#!/data/data/com.termux/files/usr/bin/sh
+#!/usr/bin/env sh
 
-set -e
-start(){
-    mkdir -p $PIDDIR
-    start-stop-daemon -S -b -m -p $PIDFILE -x $DAEMON -d $PREFIX -- $DAEMON_OPTS
+set -eu
+
+_prefix="${TERMUX__PREFIX:-"${PREFIX}"}"
+
+: "${XDG_RUNTIME_DIR:="${_prefix}/var/run"}"
+export XDG_RUNTIME_DIR
+
+BINDIR="${_prefix}/bin"
+readonly BINDIR
+
+LOGDIR="${_prefix}/var/log"
+export LOGDIR
+readonly LOGDIR
+
+SVDIR="${_prefix}/var/service"
+export SVDIR
+readonly SVDIR
+
+unset -v _prefix
+
+
+wait_for_pid() (
+    local pid="$1"
+    local s
+
+    for s in 1 2 3 4 5
+    do
+        kill -0 "${pid}" 2>/dev/null || break
+        sleep "$s"
+    done
+    kill -0 "${pid}" 2>/dev/null && return 1 || return 0
 }
-stop(){
-    start-stop-daemon -K -s 1 -o -p $PIDFILE
-    tail -f --pid=`cat $PIDFILE` /dev/null
-    for f in $SVDIR/*/supervise $SVDIR/*/log/supervise;do
-        kill -9 `cat $f/pid` 2>/dev/null ||:
-        rm -rf $f
+
+kill_from_pid_file() {
+    local pid s
+
+    for pid in $(head -n 1 "$1")
+    do
+        kill "${pid}"
+        wait_for_pid "${pid}" || kill -9 "${pid}"
     done
 }
+
+start() {
+    local prefix="${TERMUX__PREFIX:-"${PREFIX}"}"
+    readonly prefix
+
+    mkdir -m 00700 -p "${XDG_RUNTIME_DIR}"
+    start-stop-daemon -S -b -m -p "${PIDFILE}" -x "${DAEMON}" -d "${prefix}" -- ${DAEMON_OPTS}
+}
+
+stop() {
+    local d pid="$(cat "${PIDFILE}")"
+
+    start-stop-daemon -K -s 1 -o -p "${PIDFILE}"
+    wait_for_pid "${pid}" || tail -f --pid="${pid}" /dev/null
+    for d in "${SVDIR}"/*/supervise "${SVDIR}"/*/log/supervise
+    do
+        kill_from_pid_file "${d}/pid"
+        rm -rf "${d}"
+    done
+}
+
+
 # Must be a valid filename
-NAME=service-daemon
-PIDDIR=$PREFIX/var/run
-PIDFILE=$PIDDIR/$NAME.pid
-#This is the command to be run, give the full pathname
-DAEMON=$PREFIX/bin/runsvdir
-DAEMON_OPTS="$SVDIR"
+NAME='service-daemon'
+PIDFILE="${XDG_RUNTIME_DIR}/${NAME}.pid"
+# This is the command to be run, give the full pathname
+DAEMON="${BINDIR}/runsvdir"
+DAEMON_OPTS="${SVDIR}"
+
 
 case "$1" in
-    start)
-        echo -n "Starting daemon: "$NAME
-        start
-        echo "."
-        ;;
-    stop)
-        echo -n "Stopping daemon: "$NAME
-        stop
-        echo "."
+    start|stop)
+        printf -- 'S%sing daemon: %s' "$(printf -- '%s\n' "$1" | cut -c 2-)" "${NAME}"
+        "$1"
         ;;
     restart)
-        echo -n "Restarting daemon: "$NAME
+        printf -- 'Restarting daemon: %s' "${NAME}"
         stop
         start
-        echo "."
         ;;
-
     *)
-        echo "Usage: "$1" {start|stop|restart}"
+        printf -- 'Usage: %s {start|stop|restart}\n' "${0##*/}"
         exit 1
 esac
+printf -- '.\n'
 
 exit 0
