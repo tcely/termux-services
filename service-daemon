@@ -34,7 +34,7 @@ wait_for_pid() (
 }
 
 kill_from_pid_file() {
-    local pid s
+    local pid
 
     for pid in $(head -n 1 "$1")
     do
@@ -44,17 +44,14 @@ kill_from_pid_file() {
 }
 
 start() {
-    local prefix="${TERMUX__PREFIX:-"${PREFIX}"}"
-    readonly prefix
-
     mkdir -m 00700 -p "${XDG_RUNTIME_DIR}"
-    start-stop-daemon -S -b -m -p "${PIDFILE}" -x "${DAEMON}" -d "${prefix}" -- ${DAEMON_OPTS}
+    start-stop-daemon -S -b -m -p "${PIDFILE}" -x "${DAEMON}" -d "${XDG_RUNTIME_DIR}" -- "${DAEMON_OPTS}"
 }
 
 stop() {
     local d pid="$(cat "${PIDFILE}")"
 
-    start-stop-daemon -K -s 1 -o -p "${PIDFILE}"
+    start-stop-daemon -K -s "${DAEMON_STOP_SIGNAL}" -o -p "${PIDFILE}"
     wait_for_pid "${pid}" || tail -f --pid="${pid}" /dev/null
     for d in "${SVDIR}"/*/supervise "${SVDIR}"/*/log/supervise
     do
@@ -70,15 +67,25 @@ PIDFILE="${XDG_RUNTIME_DIR}/${NAME}.pid"
 # This is the command to be run, give the full pathname
 DAEMON="${BINDIR}/runsvdir"
 DAEMON_OPTS="${SVDIR}"
+# If runsvdir receives a TERM signal, it exits with 0 immediately.
+# If runsvdir receives a HUP signal,
+# it sends a TERM signal to each runsv(8) process it is monitoring and then exits with 111.
+DAEMON_STOP_SIGNAL='HUP'
 
 
 case "$1" in
-    start|stop)
-        printf -- 'S%sing daemon: %s' "$(printf -- '%s\n' "$1" | cut -c 2-)" "${NAME}"
-        "$1"
+    (restart) printf -- 'Restart' ;;
+    (start) printf -- 'Start' ;;
+    (stop) printf -- 'Stopp' ;;
+esac
+case "$1" in
+    (restart|start|stop)
+        printf -- 'ing daemon: %s' "${NAME}"
         ;;
-    restart)
-        printf -- 'Restarting daemon: %s' "${NAME}"
+esac
+case "$1" in
+    (start|stop) "$1" ;;
+    (restart)
         stop
         start
         ;;
