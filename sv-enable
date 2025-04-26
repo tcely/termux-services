@@ -1,6 +1,16 @@
 #!/usr/bin/env sh
 
-show_help(){
+default_vars() {
+    local prefix="${TERMUX__PREFIX:-"${PREFIX}"}"
+
+    : "${LOGDIR:="${prefix}/var/log"}"
+    export LOGDIR
+
+    : "${SVDIR:="${prefix}/var/service"}"
+    export SVDIR
+}
+
+show_help() {
     printf -- 'Usage:
     sv-enable <service-name>
 
@@ -12,10 +22,7 @@ if [ -z "$1" ];then
     show_help
     exit 1
 fi
-if [ -z "${SVDIR}" ];then
-    1>&2 echo "Error: SVDIR not set"
-    exit 1
-fi
 
+default_vars
 rm -f "${SVDIR}/${1}/down"
 sv up "$1"
