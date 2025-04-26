@@ -1,9 +1,25 @@
-#!/data/data/com.termux/files/usr/bin/sh
+#!/usr/bin/env sh
+
+default_vars() {
+    local prefix="${TERMUX__PREFIX:-"${PREFIX}"}"
+
+    : "${LOGDIR:="${prefix}/var/log"}"
+    export LOGDIR
+
+    : "${SVDIR:="${prefix}/var/service"}"
+    export SVDIR
+}
+
 # Get the name of the service from the PWD, this assumes the name of the
 # service is one level above the log directory.
-pwd=${PWD%/*} # $SVDIR/service/foo/log
-service=${pwd##*/} # foo
+_parent_dir="$(dirname "${PWD}")" # ${SVDIR}/service/foo/log
+service="$(basename "${_parent_dir}")" # foo
+unset -v _parent_dir
 
-mkdir -p "$LOGDIR/sv/$service"
+default_vars
+_directory="${LOGDIR}/sv/${service}"
+unset -v service
 
-exec svlogd -tt "$LOGDIR/sv/$service"
+mkdir -p "${_directory}"
+
+exec svlogd -tt "${_directory}"
