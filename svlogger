@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# shellcheck shell=dash
 
 default_vars() {
     local prefix="${TERMUX__PREFIX:-"${PREFIX}"}"
