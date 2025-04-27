@@ -59,6 +59,17 @@ stop() {
     done
 }
 
+action_message() {
+    local action_word="$1"
+    shift
+
+    printf -- '%s daemon: %s' "${action_word}" "${NAME}"
+    for cmd in "$@" ; do
+        "${cmd}"
+    done
+    printf -- '.\n'
+}
+
 
 # Must be a valid filename
 NAME='service-daemon'
@@ -73,25 +84,19 @@ DAEMON_STOP_SIGNAL='HUP'
 
 
 case "$1" in
-    (restart) printf -- 'Restart' ;;
-    (start) printf -- 'Start' ;;
-    (stop) printf -- 'Stopp' ;;
-esac
-case "$1" in
-    (restart|start|stop)
-        printf -- 'ing daemon: %s' "${NAME}"
-        ;;
-esac
-case "$1" in
-    (start|stop) "$1" ;;
     (restart)
-        stop
-        start
+        # this alternative looks and works like stop then start
+        # action_message 'Stopping' stop
+        # action_message 'Starting' start
+        # call both stop and start within a single message
+        action_message 'Restarting' stop start
         ;;
-    *)
+    (start) action_message 'Starting' "$1" ;;
+    (stop) action_message 'Stopping' "$1" ;;
+    (*)
         printf -- 'Usage: %s {start|stop|restart}\n' "${0##*/}"
         exit 1
+        ;;
 esac
-printf -- '.\n'
 
 exit 0
